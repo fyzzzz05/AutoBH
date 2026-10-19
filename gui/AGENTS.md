@@ -1,0 +1,61 @@
+# Prototype Instructions
+
+AutoBH uses the third generated visual concept selected on 2026-10-14: a person list on the left, four per-person feature rows on the right, and compact global background statuses across the top. Keep the GUI focused on these controls. The backend reuses AutoBH's actual Python management layer; `autobh ui --demo` is the only mode used for mutating browser QA. Do not change real users or start school automation while testing.
+
+Scrolling preference (updated 2026-10-17): keep the application header, sidebar heading and person search fixed. Only the person list scrolls; the right main pane must not scroll vertically, including on wheel/trackpad input. Adapt spacing and progress summaries to the available height so primary controls remain visible. Narrow layouts retain a horizontal person list. Detail modals and timetables retain their own internal scrolling.
+
+Scrollbar preference (2026-10-16): hide the person list's scrollbar in both desktop and narrow layouts while preserving wheel, touchpad, touch and keyboard scrolling in that list.
+
+Copy preference (2026-10-17): remove the main-pane hint “开关在下一轮执行时生效”.
+
+TD detail preference (2026-10-16): use a compact dashboard with semester count, today's progress, current-round stage and state animation; collapse technical failures by default. Poll local state automatically while open, keep the count timestamp distinct from status syncing, explain cache-only availability outside check-in windows, and honor reduced-motion settings. User explicitly chose automatic syncing only: never submit an extra TD check/query_count to refresh counts, because the native count query is itself a check-in.
+
+Timetable preference (2026-10-15): show the weekly class schedule as a Monday–Sunday timetable with a vertical time axis, compact course blocks, short local times and clear attendance labels. Keep the raw CLI output out of this view. Preserve a usable scrollable week grid on narrow screens.
+
+Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
+
+Before making substantial visual changes, use the Product Design plugin's `get-context` skill when the visual source is unclear or no longer matches the current goal. When the user gives durable prototype-specific design feedback, preferences, or decisions, record them in `AGENTS.md`.
+
+When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
+
+Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
+
+Progress preference (2026-10-15): show TD semester total plus today's rounds and Boya completed semester courses directly on the person's feature rows, including while paused or stopped. Reuse native count/statistics caches; distinguish missing data from a confirmed zero.
+
+Boya selected-course preference (2026-10-15): show separate sign-in and sign-out status for each selected course. Read native school signInfo records, distinguish missing/unknown records, and never infer both actions from course pass or numeric checkin alone.
+
+Boya completion rules confirmed by the user (2026-10-15): only both successful sign-in and sign-out count +1. An ended course with incomplete attendance counts -1 in its own category, including negative totals; do not clamp net progress to zero. Requirements: 德育 2, 美育 1, 劳育/劳动教育 2, 安全健康 1, each independently met. Pending courses and stale/unknown attendance are not immediately penalized. Display completed, deducted, net, and remaining counts per category; never double-subtract school validCount.
+
+Boya list ordering (2026-10-15): sort all selected courses together by course start time, newest first; put unknown or invalid times last, regardless of category.
+
+Boya automation guard (2026-10-15): AutoBH-managed automation must recheck the selected user's net count in the candidate course's category immediately before auto-selection. Skip new courses once that category meets its target; retain sign-in/sign-out for already-selected courses to avoid deductions. A met user's category must not prevent another user's needed selections.
+
+Refresh and withdrawal preference (2026-10-15): show data timestamps separately from worker status. Allow read-only Boya/class refresh, preserve previous data on failure, and query newly bound accounts immediately. TD has no safe native read-only count endpoint: its refresh must only reread local cache and say so. Show TD failure reason, failure time and next retry; limit retries and preserve the phase and successful check substeps. Boya withdrawal shows its cutoff and a course-specific confirmation; save a per-person exclusion before submitting, then verify against fresh chosen-course data. Every AutoBH automation entry uses the category guard and exclusions.
+
+Visual reference replacement (2026-10-15): use the supplied teal workspace screenshot as the current visual source, replacing the earlier blue/purple concept. Deep teal header and TD count card, sage sidebar, off-white main surface, filled teal selected person, outlined teal actions, inline status pills, large person name and compact ID/group row. Sidebar count and functional 全部/运行中/未绑定 filters stay above its independently scrolling list; running means an enabled binding with an active non-stopping worker, unbound means at least one of the four functions lacks an account. Keep the feature rows divided by rules, show TD semester total and amber today-round indicators, move logs to the 自动执行 heading, and keep deletion accessible in 编辑资料. Exclude the screenshot's design-editor chrome. Preserve all real backend operations and modal flows.
+
+Sunshine integration (2026-10-17): add 阳光打卡 as a fourth per-person function. Its switch/worker controls read-only synchronization every 30 minutes; submissions are manual with real activity type, start/end time, place, photo and a review step. Reuse school passwords by reference when requested, never create synthetic activity records or submit during QA. Keep the right overview fixed at existing window sizes.
+
+Sunshine batch preference (2026-10-17): weekly target is 4. “一键四连” means separate activity timestamps, not delays between HTTP requests. The form lists editable time ranges, offers explicit daily spacing from the first range, and reviews all records together. Require completed activities within the current Beijing week and at least 12 hours between ranges. Query live weekly count before a batch, fill only the gap up to 4, stop on uncertain/failing results, retain durable success markers, and never auto-retry uncertain submissions.
+
+Header simplification (2026-10-17): show only the four short feature names and status lights in the top bar; remove the visible 后台 label and textual running/stopped suffixes. Retain a title/accessibility label with each service state, and use amber while stopping. Hide the group badge when blank or 未分组; show named groups normally.
+
+Brand icon (2026-10-17): replace the purple BH text tile with a deep teal rounded tile, custom off-white geometric A, and a mint check forming the crossbar/ascending wing. Native generator packaging/macos/Icon.swift and gui/public/autobh.svg share the mark geometry. Keep the symbol simple enough for the Dock, with transparent macOS icon margins; do not add small lettering or four separate feature pictograms.
+
+Current visual source (2026-10-17, supersedes earlier row-layout/teal and header rules): use the user's selected Claude artifact screenshot, cropped to the AutoBH app only, as the visual truth. White header with brand and aggregate running/paused/unbound counts; white narrow people sidebar with pill filters, indigo selected row and four per-person status dots; pale gray main canvas with selected person header and a 2×2 feature-card grid. Bound cards are white with solid pale borders; unbound cards use transparent fill and dashed borders. Monogram tiles are literal UI labels 课/TD/博/阳 as in the source. Exact user-supplied accent is #4455D9. Keep existing forms, search, add, detail, logs and service controls functional; small sidebar utility buttons preserve search/add without introducing a separate heading. No ungrouped badge. Preserve fixed overview/independent hidden-scrollbar person list. The selected image is gui/qa/indigo-reference/source-normalized.png.
+
+Person indicator feedback (2026-10-17): all person rows, selected or unselected, show four configuration lights in class/TD/Boya/Sunshine order. Green means that person enabled the feature, amber means paused, gray means unbound (muted indigo on the selected row). Worker availability must not turn an enabled person indicator off; actual shared-worker status remains on feature cards and aggregate running counts. Selection must never affect the underlying indicator state.
+
+Sunshine authorization recovery (2026-10-18): expose 学校登录/授权, 重新连接, and 更新账号 within Sunshine details. Official login opens in the system browser from the macOS shell; only explicit HTTPS school login links may open externally. Explain that browser cookies are separate and reconnect uses the bound person's credentials. Distinguish authentication/captcha errors from network failures, retain cached data, and never call a check-in to test authorization.
+
+Appearance preference (2026-10-18): offer 系统 / 浅色 / 深色 in the header. Default to system and follow OS changes live. Persist the choice in the local preferences store across App restarts without changing WKWebView's nonpersistent cookie storage. Match dialogs, forms, timetable, status animations and native titlebar to the selected appearance. Preserve the indigo accent and fixed overview; demo appearance changes must not affect real preferences.
+
+Sunshine overview preference (2026-10-18): show only semester and weekly counts on the main Sunshine card; remove the 今日/day count from this summary.
+
+Focus feedback (2026-10-18): mouse/pointer selections must not leave a highlighted focus frame around appearance controls or the main pane. Keep visible focus indicators for deliberate keyboard navigation; do not blur controls unconditionally.
+
+Sunshine batch auto-fill (2026-10-19): user chose automatic time filling with review before submitting together, not a scheduled background submission. Opening 一键四连 generates the required number of daily-spaced Beijing-time drafts within the current week. Prefer ended slots when available; visibly mark upcoming slots and block submission until every activity has ended. Default item/place may reuse recent visible records but remain editable. Keep explicit photo selection and final confirmation.
+
+Sunshine timing override (2026-10-19, supersedes daily spacing / 12-hour gap): user requests default running and about ten-minute gaps, generating three earlier intervals backward from the current Beijing time. Use editable 30-minute activity drafts with at least ten minutes from previous end to next start, within this week, all ended and each within one day. Fill only the weekly gap, retain review/confirmation, photo selection, duplicate guards, and stop on uncertain responses. Do not start a scheduled background submitter.
+
+Sunshine layout fix (2026-10-19): present all batch intervals, including the first, in one compact aligned numbered table. Preserve interior spacing around time inputs; place project and location side by side on desktop. Keep modal title and review/submit actions fixed while its content scrolls; mobile time rows stack with explicit start/end labels. Hide account/aggregate panels while editing to keep the form focused.

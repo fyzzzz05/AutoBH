@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AutoBH"
+version = "0.1.8"
+description = "北航上课、TD、博雅、阳光工具的统一 CLI 与 GUI 管理入口"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.31,<3", "beautifulsoup4>=4.12,<5", "PyYAML>=6,<7",
+  "cryptography>=42", "httpx>=0.27", "keyring>=25", "rich>=13", "typer>=0.12",
+]
+
+[project.scripts]
+autobh = "autobh.cli:main"
+
+[project.optional-dependencies]
+td = ["autotd-buaa>=0.1.15,<0.2"]
+dev = ["pytest>=8"]
+macos-build = ["pyinstaller>=6.16,<7; sys_platform == 'darwin'"]
+
+[tool.setuptools.packages.find]
+where = ["src", "AutoSign/CLI/src", "AutoBoya"]
+include = ["autobh*", "autosign_cli*", "autoboya*"]
+
+[tool.setuptools.package-data]
+autobh = ["web/index.html", "web/*.svg", "web/assets/*", "third_party/*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"

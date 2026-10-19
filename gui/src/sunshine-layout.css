@@ -1,0 +1,53 @@
+/* Keep the Sunshine title and actions visible; only its content scrolls. */
+.dialog-sunshine {
+  width:820px; height:min(850px,calc(100dvh - 48px)); padding:24px;
+  overflow:hidden;
+}
+.dialog-sunshine[open] { display:flex; flex-direction:column; }
+.dialog-sunshine > .dialog-heading { flex:none; margin-bottom:12px; }
+.dialog-sunshine > .detail-toolbar { flex:none; margin-bottom:14px; font-size:12px; }
+.dialog-sunshine > .form-error { flex:none; margin:0 0 12px; }
+.dialog-sunshine .sunshine-dashboard { display:flex; flex-direction:column; flex:1; min-height:0; }
+.sunshine-scroll-body { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-right:8px; }
+.sunshine-scroll-body > .sunshine-section-heading { margin:0 0 16px; }
+.sunshine-scroll-body .sunshine-metrics { margin-bottom:20px; }
+.sunshine-form { display:grid; gap:18px; padding:0 0 8px; }
+.dialog .sunshine-form > label { margin:0; font-size:13px; line-height:20px; }
+.sunshine-meta-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+.sunshine-meta-fields > label,.sunshine-time-fields > label { display:block; min-width:0; font-size:13px; line-height:20px; }
+.dialog .sunshine-form input,.dialog .sunshine-form select { margin-top:6px; font-size:13px; height:40px; }
+.dialog .sunshine-form input[type=file] { height:auto; padding:8px 10px; min-height:40px; }
+.dialog .sunshine-form input[type=datetime-local] { min-width:0; width:100%; padding:9px; line-height:20px; }
+.dialog .sunshine-form input[type=datetime-local]::-webkit-date-and-time-value { text-align:left; }
+.dialog .sunshine-form input[type=datetime-local]::-webkit-datetime-edit { padding:0; }
+.sunshine-batch-times { min-width:0; }
+.sunshine-batch-hint { gap:8px 14px; margin-bottom:10px; font-size:11px; line-height:18px; }
+.sunshine-batch-hint .text-button { font-size:11px; }
+.batch-time-table { border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.batch-time-header,.batch-time-row { display:grid; grid-template-columns:30px minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:center; padding:10px 14px; }
+.batch-time-header { background:var(--surface-soft); color:var(--muted); font-size:11px; line-height:18px; }
+.batch-time-row { border-top:1px solid var(--line); }
+.batch-time-row > label { display:block; min-width:0; margin:0; }
+.batch-time-row > label > span { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.dialog .batch-time-row input { margin:0; }
+.batch-time-number { display:grid; place-items:center; width:24px; height:24px; border-radius:7px; color:var(--accent-text); background:var(--accent-soft); font-size:12px; font-variant-numeric:tabular-nums; }
+.sunshine-sticky-actions { flex:none; display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:14px 0 0; margin-top:12px; border-top:1px solid var(--line); background:var(--surface); }
+.sunshine-sticky-actions > span { margin-right:auto; font-size:11px; color:var(--muted); }
+.sunshine-sticky-actions .button { min-height:38px; font-size:13px; }
+.sunshine-form .sunshine-photo-preview { max-height:110px; }
+.sunshine-review { padding:0 0 12px; }
+@media(max-width:540px) {
+  .dialog-sunshine { max-width:calc(100vw - 20px); width:calc(100vw - 20px); height:calc(100dvh - 24px); max-height:calc(100dvh - 24px); padding:18px 14px; }
+  .sunshine-scroll-body { padding-right:4px; }
+  .sunshine-meta-fields { grid-template-columns:minmax(0,1fr); gap:14px; }
+  .batch-time-header { display:none; }
+  .batch-time-row { grid-template-columns:24px minmax(0,1fr); gap:8px 10px; padding:12px; }
+  .batch-time-row:first-child { border-top:0; }
+  .batch-time-number { grid-row:span 2; }
+  .batch-time-row > label { grid-column:2; }
+  .batch-time-row > label > span { position:static; width:auto; height:auto; clip-path:none; white-space:normal; color:var(--muted); font-size:11px; line-height:16px; display:block; margin-bottom:4px; }
+  .sunshine-sticky-actions > span { display:none; }
+  .sunshine-sticky-actions { gap:8px; padding-top:12px; }
+  .sunshine-sticky-actions .button { min-height:40px; }
+  .sunshine-time-fields { gap:14px; }
+}

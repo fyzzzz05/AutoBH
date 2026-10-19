@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <title>AutoBH</title>
+  <defs>
+    <linearGradient id="teal" x1="220" y1="110" x2="790" y2="915" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16656F"/><stop offset="1" stop-color="#0A3037"/>
+    </linearGradient>
+  </defs>
+  <rect x="96" y="96" width="832" height="832" rx="192" fill="url(#teal)"/>
+  <rect x="96" y="96" width="832" height="832" rx="192" stroke="#E0FFF8" stroke-opacity=".12" stroke-width="3"/>
+  <path d="M286 700 460 337Q482 292 505 337L686 700" stroke="#F4FBF8" stroke-width="86" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m391 567 79 75 256-247" stroke="#84E5CA" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
