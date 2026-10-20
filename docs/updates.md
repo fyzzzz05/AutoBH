@@ -1,6 +1,8 @@
 # macOS 应用内更新
 
-AutoBH 使用 Sparkle 2，通过公开 GitHub Releases 下载更新。当前发布仓库配置为 `fyzzzz05/AutoBH`，Apple Silicon 更新源固定为：
+AutoBH 使用 Sparkle 2，现有实现通过无需登录的 GitHub Releases 地址下载更新。当前发布仓库 `fyzzzz05/AutoBH` 按用户要求设为私有，代码与 Release 文件仅对获授权的 GitHub 用户可见。**目前 App 未接入 GitHub 授权，因此私有仓库中的 Release 尚不能通过应用内更新直接下载。** 不得为打通更新而擅自公开仓库或把 GitHub token 打包进 App；后续需单独实现私有更新授权。
+
+Apple Silicon 更新源配置仍为：
 
 `https://github.com/fyzzzz05/AutoBH/releases/latest/download/appcast-arm64.xml`
 
