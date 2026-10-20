@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from autoboya.cache import CourseCache
 from autoboya.models import UserRecord
+from autoboya.bykc import parse_chosen_course
 
 from autobh import backends
 from autobh.boya_operations import drop_user_course, exclusions, observation, refresh_user
@@ -24,7 +25,7 @@ def native_client(monkeypatch):
             return {'data': {'semester': [{'semesterStartDate': (now - timedelta(days=30)).isoformat(),
                                           'semesterEndDate': (now + timedelta(days=30)).isoformat()}]}}
         def query_chosen_courses(self, start, end):
-            return self.selected
+            return [parse_chosen_course(raw) for raw in self.selected]
         def query_statistics(self):
             return {'validCount': 1}
         def drop_course(self, course_id):
@@ -83,3 +84,22 @@ def test_failed_refresh_keeps_previous_cache_timestamp(native_client, monkeypatc
         refresh_user('1')
     assert 'secret-url' not in str(error.value)
     assert observation(store, '1')['updatedAt'] == old
+
+
+def test_refresh_returns_serialized_native_courses_with_withdrawal_fields(native_client):
+    store, client = native_client
+    result = refresh_user('1')
+    assert isinstance(result[0], dict)
+    assert result[0]['id'] == 7
+    assert result[0]['courseCancelEndDate'] == client.selected[0]['courseCancelEndDate']
+    assert result == CourseCache(store).load_selected('1')
+
+
+def test_withdraw_verifies_native_objects_returned_after_submission(native_client, monkeypatch):
+    store, client = native_client
+    monkeypatch.setattr(client, 'drop_course', lambda course_id: client.dropped.append(course_id))
+    with pytest.raises(ValueError, match='学校仍显示已选'):
+        drop_user_course('1', 7)
+    assert client.dropped == [7]
+    assert '7' in exclusions(store)['1']
+    assert CourseCache(store).load_selected('1')[0]['id'] == 7

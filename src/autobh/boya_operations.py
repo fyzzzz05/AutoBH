@@ -41,7 +41,7 @@ def semester(client):
 
 
 def refresh_with_client(store, username, client, window=None):
-    from autoboya.cache import CourseCache
+    from autoboya.cache import CourseCache, serialize_course
     from .progress import read_boya_cache
     # Preserve legacy users' timestamps before shared cache files are rewritten.
     stats, selections, old_time = read_boya_cache(store)
@@ -59,7 +59,9 @@ def refresh_with_client(store, username, client, window=None):
     cache.save_selected(username, selected)
     cache.save_statistics(username, statistics)
     mark_observation(store, username, updatedAt=datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), error=None)
-    return selected
+    # Native requests return BoyaCourse objects; callers consume the same raw
+    # representation as the cache, including course IDs and cancellation dates.
+    return [serialize_course(course) for course in selected]
 
 
 def refresh_user(username):
