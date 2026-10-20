@@ -4,11 +4,11 @@
 
 ## macOS App 与 DMG
 
-可从私有仓库的 [Releases](https://github.com/fyzzzz05/AutoBH/releases) 下载 `AutoBH-0.1.10-macOS-arm64.dmg`（需有仓库访问权限），或使用本地 `dist/AutoBH-0.1.10-macOS-arm64.dmg`：打开后将 `AutoBH.app` 拖入“应用程序”。App 内置 Python、三个原工具及 GUI，不需要另外安装 Python 或 Node.js。当前构建为 Apple Silicon 版，使用本机签名，尚未经过 Apple Developer ID 签名和公证。
+可从 [Releases](https://github.com/fyzzzz05/AutoBH/releases) 下载 `AutoBH-0.1.10-macOS-arm64.dmg`，或使用本地 `dist/AutoBH-0.1.10-macOS-arm64.dmg`：打开后将 `AutoBH.app` 拖入“应用程序”。App 内置 Python、三个原工具及 GUI，不需要另外安装 Python 或 Node.js。当前构建为 Apple Silicon 版，使用本机签名，尚未经过 Apple Developer ID 签名和公证。
 
 App 沿用 `~/.autobh`、`~/.autosign`、`~/.autoboya`、`~/.autoTD` 中的账号和缓存。安装包不包含个人账号。窗口使用独立本机端口，不占用 CLI GUI 的 8765；关闭窗口会结束其管理服务，已启动的后台继续运行。请先把 App 安装到固定位置，再启动后台。
 
-支持 macOS 菜单栏 **AutoBH → 检查更新…**，通过 GitHub Releases 下载并校验更新，确认后安装并重新打开。默认自动检查，可在菜单关闭。当前发布仓库为私有仓库，现有更新器尚未接入 GitHub 授权，不能直接下载私有 Release；目前需登录 GitHub 下载 DMG 安装。旧版本需先安装一次带更新器的新版本。[更新签名与发布说明](docs/updates.md)。
+支持 macOS 菜单栏 **AutoBH → 检查更新…**，通过 GitHub Releases 下载并校验更新，确认后安装并重新打开。默认自动检查，可在菜单关闭。发布仓库和 0.1.10 Release 已公开，无需 GitHub 登录即可读取更新源与下载更新包。旧版本需先安装一次带更新器的新版本。[更新签名与发布说明](docs/updates.md)。
 
 在 macOS 上重新打包（推荐独立 Python 3.12 环境）：
 
