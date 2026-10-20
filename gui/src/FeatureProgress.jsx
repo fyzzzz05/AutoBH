@@ -13,7 +13,7 @@ export function FeatureProgress({ feature, binding }) {
     return <p className="sunshine-inline-progress">学期 <strong>{counts.termCount ?? '—'}{counts.termTarget != null ? ` / ${counts.termTarget}` : ''}</strong><span>本周 <strong>{counts.weekCount ?? '—'} / {counts.weekTarget ?? 4}</strong></span></p>;
   }
   if (feature === 'boya' && counts?.categories) {
-    return <div className="boya-inline-progress"><p>{binding.progress}</p><div className="boya-inline-categories">{counts.categories.map((category) => <span key={category.name} className={category.met ? 'met' : ''}>{category.name}<strong>{counts.totalCount == null ? '—' : category.net} / {category.required}</strong></span>)}</div></div>;
+    return <div className="boya-inline-progress"><p>{binding.progress}</p><div className="boya-inline-categories">{counts.categories.map((category) => <span key={category.name} className={category.met ? 'met' : ''}>{category.name}<strong>{category.completed ?? '—'} / {category.required ?? '—'}</strong></span>)}</div></div>;
   }
   return binding.progress ? <p className="feature-progress">{binding.progress}</p> : null;
 }

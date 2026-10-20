@@ -194,18 +194,17 @@ def test_native_progress_keeps_semester_total_separate_from_today(tmp_path, monk
     assert "2026-10-15 09:00:00" in app.detail("td", "1")["text"]
 
 
-def test_boya_progress_does_not_trust_aggregate_completion_without_attendance_records():
+def test_boya_progress_trusts_official_statistics_without_attendance_records():
     from autobh.progress import boya_progress, progress_text
     stats = {"statistical": {"60|博雅课程": {
-        "55|德育": {"completeAssessmentCount": 2},
-        "56|美育": {"completeAssessmentCount": 1}}}, "validCount": -2}
+        "55|德育": {"completeAssessmentCount": 2, "assessmentCount": 2},
+        "56|美育": {"completeAssessmentCount": 1, "assessmentCount": 1}}}, "validCount": -2}
     result = boya_progress(stats)
-    assert result["totalCount"] == 0
-    assert result["unknown"] == 3
-    assert result["schoolValidCount"] == -2
-    assert "3 门待核实" in progress_text("boya", result)
+    assert result["totalCount"] == -2
+    assert result["metCategories"] == 2
+    assert "2 类待同步" in progress_text("boya", result)
     assert boya_progress({})["totalCount"] is None
-    assert boya_progress({}, [])["totalCount"] == 0
+    assert boya_progress({}, [])["totalCount"] is None
 
 
 def test_boya_counts_snapshot_and_detail_reuse_statistical_enrollment_records(tmp_path, monkeypatch):
@@ -216,19 +215,19 @@ def test_boya_counts_snapshot_and_detail_reuse_statistical_enrollment_records(tm
     store.init()
     store.upsert_user(UserRecord("1", enabled=False))
     CourseCache(store).save_statistics("1", {"statistical": {"60|博雅课程": {
-        "55|德育": {"courseUserList": [
+        "55|德育": {"assessmentCount": 2, "completeAssessmentCount": 1, "failAssessmentCount": 1, "courseUserList": [
             {"courseInfo": {"id": 1, "courseName": "德育课", "courseEndDate": "2026-09-10 10:00:00"}, "signInfo": {"signIn": {"inSignArea": True}, "signOut": {"inSignArea": True}}},
             {"courseInfo": {"id": 2, "courseName": "未完成课", "courseEndDate": "2026-09-10 10:00:00"}, "signInfo": None},
         ]}}}, "validCount": 0})
     monkeypatch.setattr(service, "status", lambda feature: {"status": "stopped", "stop_requested": False})
     app = Application(tmp_path)
     row = app.snapshot()["people"][0]
-    assert row["features"]["boya"]["progress"] == "有效 0 次 · 已达标 0 / 4 类"
+    assert row["features"]["boya"]["progress"] == "净有效 0 次 · 已达标 0 / 4 类 · 3 类待同步"
     detail = app.detail("boya", "1")
-    assert "德育：有效 0 / 2 次（完成 1，扣次 1，还需 2）" in detail["text"]
+    assert "德育：考核通过 1 / 2（还需 1 次）" in detail["text"]
     assert len(detail["courses"]) == 2
     assert detail["courses"][0]["category"] == "德育"
-    assert detail["courses"][1]["settlement"]["delta"] == -1
+    assert detail["courses"][1]["settlement"]["state"] == "unknown"
 
 
 def test_boya_detail_returns_per_course_attendance_from_native_cache(tmp_path):

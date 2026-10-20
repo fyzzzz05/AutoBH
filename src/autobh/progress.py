@@ -24,75 +24,89 @@ def read_boya_cache(store):
     return cache.load_statistics(), cache.load_selected(), observed_at
 
 
+def official_count(value, *, signed=False) -> int | None:
+    """Accept school integer counts without turning missing/malformed data into zero."""
+    import re
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        number = value
+    elif isinstance(value, str) and re.fullmatch(r"-?[0-9]+", value.strip()):
+        number = int(value)
+    else:
+        return None
+    return number if signed or number >= 0 else None
+
+
 def boya_progress(statistics: dict, selected: list | None = None, *, now=None, observed_at=None) -> dict:
     from autoboya.cli import iter_stat_rows
     from .boya import TARGETS, category_name, course_view, parse_time
 
-    categories = {name: {"name": name, "required": required, "completed": 0, "failed": 0,
-                         "pending": 0, "unknown": 0} for name, required in TARGETS.items()}
+    categories = {name: {"name": name, "required": None, "completed": None,
+                         "failed": None, "pending": None, "known": False}
+                  for name in TARGETS}
     records = {}
-    reported_counts = {}
-    category_rows = list(iter_stat_rows(statistics))
-    # Statistics contain complete per-category enrollment records. Selected
-    # courses provide attendance updates and are merged by the native course ID.
-    for category, item in category_rows:
+    seen = set()
+    groups = statistics.get("statistical")
+    boya_stats = {"statistical": {key: value for key, value in groups.items()
+                                  if str(key).split("|", 1)[-1] == "博雅课程"}} if isinstance(groups, dict) else {}
+    for category, item in iter_stat_rows(boya_stats):
         name = category_name(category)
-        rows = item.get("courseUserList")
-        if not isinstance(rows, list):
-            if name in categories:
-                reported = max(int(item.get("selectAssessmentCount") or 0),
-                               int(item.get("completeAssessmentCount") or 0) + int(item.get("failAssessmentCount") or 0))
-                reported_counts[name] = max(reported_counts.get(name, 0), reported)
-            continue
-        for raw in rows:
+        if name in categories:
+            row = categories[name]
+            row.update(required=official_count(item.get("assessmentCount")),
+                       completed=official_count(item.get("completeAssessmentCount")),
+                       failed=official_count(item.get("failAssessmentCount")),
+                       pending=official_count(item.get("undoneAssessmentCount")))
+            row["known"] = name not in seen and row["required"] is not None and row["completed"] is not None
+            seen.add(name)
+        courses = item.get("courseUserList")
+        for raw in courses if isinstance(courses, list) else []:
+            if not isinstance(raw, dict):
+                continue
             view = course_view(raw, now, observed_at)
             if not view["category"]:
                 view["category"] = name
             records[view["id"]] = view
+    # Chosen courses update attendance independently of the school's assessment.
     for raw in selected or []:
         view = course_view(raw, now, observed_at)
         previous = records.get(view["id"])
-        if previous and not view["category"]:
-            view["category"] = previous["category"]
+        if previous:
+            if not view["category"]:
+                view["category"] = previous["category"]
+            if previous["settlement"]["state"] in {"completed", "failed"}:
+                view["settlement"] = previous["settlement"]
         records[view["id"]] = view
-    for view in records.values():
-        category = categories.get(view["category"])
-        if category is not None:
-            category[view["settlement"]["state"]] += 1
-    for name, reported in reported_counts.items():
-        categories[name]["unknown"] += max(0, reported - sum(view["category"] == name for view in records.values()))
     for row in categories.values():
-        row["net"] = row["completed"] - row["failed"]
-        row["remaining"] = max(0, row["required"] - row["net"])
-        row["met"] = row["net"] >= row["required"] and row["unknown"] == 0
+        row["remaining"] = max(0, row["required"] - row["completed"]) if row["known"] else None
+        row["met"] = row["known"] and row["completed"] >= row["required"]
     rows = list(categories.values())
-    known = bool(category_rows) or selected is not None
 
     def course_order(course):
         start = parse_time(course["start"])
         return (start is None, -start.timestamp() if start is not None else 0)
 
-    courses = sorted(records.values(), key=course_order)
-    return {"totalCount": sum(row["net"] for row in rows) if known else None,
-            "completed": sum(row["completed"] for row in rows),
-            "failed": sum(row["failed"] for row in rows),
-            "unknown": sum(row["unknown"] for row in rows),
-            "pending": sum(row["pending"] for row in rows),
+    total = official_count(statistics.get("validCount"), signed=True)
+    return {"source": "official", "totalCount": total,
+            "completed": sum(row["completed"] or 0 for row in rows),
+            "failed": sum(row["failed"] or 0 for row in rows),
+            "pending": sum(row["pending"] or 0 for row in rows),
+            "unknown": sum(not row["known"] for row in rows),
             "metCategories": sum(row["met"] for row in rows),
-            "met": known and all(row["met"] for row in rows),
-            "schoolValidCount": statistics.get("validCount"),
-            "categories": rows, "courses": courses}
+            "met": all(row["met"] for row in rows),
+            "schoolValidCount": total, "categories": rows,
+            "courses": sorted(records.values(), key=course_order)}
 
 
 def progress_text(feature: str, progress: dict) -> str:
     total = progress["totalCount"]
     if feature == "boya":
         if total is None:
-            return "暂无进度缓存"
-        prefix = "已核实有效" if progress["unknown"] else "有效"
-        text = f"{prefix} {total} 次 · 已达标 {progress['metCategories']} / 4 类"
+            return "暂无官方统计缓存"
+        text = f"净有效 {total} 次 · 已达标 {progress['metCategories']} / 4 类"
         if progress["unknown"]:
-            text += f" · {progress['unknown']} 门待核实"
+            text += f" · {progress['unknown']} 类待同步"
         return text
     text = f"本学期已完成 {total} 次" if total is not None else "暂无次数缓存"
     if feature == "td":

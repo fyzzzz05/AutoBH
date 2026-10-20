@@ -67,9 +67,9 @@ class BoyaRunner(AutomationRunner):
         category = next((row for row in progress["categories"] if row["name"] == name), None)
         if category is None:
             return "课程类别未知，暂不自动选课"
-        if category["net"] >= category["required"]:
-            return f"{name}已达标（有效 {category['net']}/{category['required']}），跳过新选课"
-        if progress["totalCount"] is None or category["unknown"]:
+        if category["met"]:
+            return f"{name}已达标（官方考核通过 {category['completed']}/{category['required']}），跳过新选课"
+        if progress["totalCount"] is None or not category["known"]:
             return f"{name}进度待核实，暂不自动选课"
         return None
 

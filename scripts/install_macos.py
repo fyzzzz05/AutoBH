@@ -11,7 +11,15 @@ if __package__:
     from .cleanup_macos import ROOT, info, running_binaries
 else:
     from cleanup_macos import ROOT, info, running_binaries
-from autobh.update_workers import prepare, restore_pending
+
+
+def prepare(*, executable):
+    # The outgoing engine records its own version for the new App's resume guard.
+    subprocess.run([str(executable), '--update-workers', 'prepare'], check=True)
+
+
+def restore_pending(*, executable, force=False):
+    subprocess.run([str(executable), '--update-workers', 'rollback' if force else 'resume'], check=True)
 
 
 def verify(app):
@@ -47,7 +55,7 @@ def install(source, target):
                     target.rename(temporary / 'failed.app')
                 previous.rename(target)
             if attempted:
-                restore_pending(force=True)
+                restore_pending(executable=target / 'Contents/Resources/engine/autobh-engine', force=True)
             raise
     print(f'已安装 {info(target)["CFBundleShortVersionString"]}；安装成功后不保留旧版本。重新打开 App 恢复原有后台。')
 

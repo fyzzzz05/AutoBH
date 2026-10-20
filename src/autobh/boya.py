@@ -1,4 +1,4 @@
-"""Read native Boya attendance and apply the user's completion rules."""
+"""Read independent attendance records and official Boya assessment states."""
 from __future__ import annotations
 
 import json
@@ -56,17 +56,16 @@ def course_view(raw: dict, now: datetime | None = None, observed_at: datetime | 
     deadlines = [parsed for value in (course.course_end, course.sign_config.get("signOutEndDate"))
                  if (parsed := parse_time(value)) is not None]
     deadline = max(deadlines) if deadlines else None
-    states = {sign_in["state"], sign_out["state"]}
-    if states == {"done"}:
-        settlement = {"state": "completed", "label": "已完成 +1", "delta": 1}
+    # Assessment comes from the school; missing sign-out records are not a failure.
+    passed = record.get("pass")
+    if type(passed) is int and passed == 1 or type(passed) is str and passed == "1":
+        settlement = {"state": "completed", "label": "考核通过"}
+    elif type(passed) is int and passed == 0 or type(passed) is str and passed == "0":
+        settlement = {"state": "failed", "label": "考核未通过"}
     elif deadline is not None and now <= deadline:
-        settlement = {"state": "pending", "label": "待完成 · 暂不计次", "delta": 0}
-    elif deadline is not None and observed_at is not None and observed_at <= deadline:
-        settlement = {"state": "unknown", "label": "待刷新核实", "delta": 0}
-    elif deadline is not None and "unknown" not in states:
-        settlement = {"state": "failed", "label": "未完成 −1", "delta": -1}
+        settlement = {"state": "pending", "label": "待考核"}
     else:
-        settlement = {"state": "unknown", "label": "待核实 · 暂不计次", "delta": 0}
+        settlement = {"state": "unknown", "label": "考核待核实"}
 
     cancel_end = parse_time(course.cancel_end)
     can_drop = cancel_end is not None and now < cancel_end and (parse_time(course.course_start) is not None and now < parse_time(course.course_start))

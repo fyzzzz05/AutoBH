@@ -63,73 +63,121 @@ def category(result, name):
     return next(row for row in result['categories'] if row['name'] == name)
 
 
-def test_boya_deducts_in_own_category_and_keeps_negative_progress():
-    progress = boya_progress({}, [enrollment(1), enrollment(2, signed_out=False),
-        enrollment(3, '美育', signed=False, signed_out=False), enrollment(4, '美育', signed_out=False)], now=NOW)
-    moral, art = category(progress, '德育'), category(progress, '美育')
-    assert (moral['completed'], moral['failed'], moral['net'], moral['remaining']) == (1, 1, 0, 2)
-    assert (art['net'], art['remaining']) == (-2, 3)
-    assert progress['totalCount'] == -2
+def official_statistics(*, moral=2, art=1, labor=1, health=1, valid=4):
+    return {'validCount': valid, 'statistical': {'60|博雅课程': {
+        f'{i}|{name}': {'assessmentCount': required, 'completeAssessmentCount': passed,
+                       'failAssessmentCount': int(name == '劳动教育'), 'undoneAssessmentCount': 0}
+        for i, (name, required, passed) in enumerate([
+            ('德育', 2, moral), ('美育', 1, art), ('劳动教育', 2, labor), ('安全健康', 1, health)], 55)}}}
 
 
-def test_boya_all_four_fixed_targets_are_required_and_extra_cannot_offset_other_categories():
-    courses = [enrollment(i, '美育') for i in range(1, 8)]
-    progress = boya_progress({}, courses, now=NOW)
-    assert progress['totalCount'] == 7
-    assert progress['metCategories'] == 1
-    assert not progress['met']
-    courses = [enrollment(i, c) for i, c in enumerate(['德育', '德育', '美育', '劳动教育', '劳育', '安全健康'], 1)]
-    progress = boya_progress({}, courses, now=NOW)
-    assert [row['required'] for row in progress['categories']] == [2, 1, 2, 1]
-    assert progress['totalCount'] == 6
-    assert progress['metCategories'] == 4
-    assert progress['met']
+def test_official_statistics_match_school_even_when_attendance_differs():
+    stats = official_statistics()
+    courses = [enrollment(1, signed_out=False), enrollment(2),
+               enrollment(3, '劳动教育'), enrollment(4, '劳动教育', signed=False)]
+    result = boya_progress(stats, courses, now=NOW)
+    assert result['totalCount'] == 4
+    assert [(r['completed'], r['required'], r['met']) for r in result['categories']] == [
+        (2, 2, True), (1, 1, True), (1, 2, False), (1, 1, True)]
+    assert result['metCategories'] == 3
+    assert category(result, '劳育')['failed'] == 1
+    assert category(result, '劳育')['remaining'] == 1
+    assert not result['met']
 
 
-def test_boya_dedupes_native_statistical_records_and_does_not_subtract_valid_count_twice():
-    course = enrollment(1)
-    stats = {'validCount': -2, 'statistical': {'60|博雅课程': {'55|德育': {
-        'assessmentCount': 50, 'courseUserList': [course]}}}}
-    progress = boya_progress(stats, [course, enrollment(2, signed_out=False)], now=NOW)
-    assert progress['completed'] == progress['failed'] == 1
-    assert progress['totalCount'] == 0
-    assert progress['schoolValidCount'] == -2
-    assert category(progress, '德育')['required'] == 2
-    assert len(progress['courses']) == 2
+def test_official_requirements_and_signed_net_total_are_not_recomputed():
+    stats = official_statistics(labor=2, valid=-2)
+    stats['statistical']['60|博雅课程']['55|德育']['assessmentCount'] = 3
+    result = boya_progress(stats, [], now=NOW)
+    assert result['totalCount'] == -2
+    assert category(result, '德育')['required'] == 3
+    assert category(result, '德育')['remaining'] == 1
+    assert not category(result, '德育')['met']
 
 
-def test_boya_waits_until_course_and_signout_window_end_before_deduction():
-    course = enrollment(1, signed_out=False, end='2026-10-15 11:50:00')
-    course['courseSignConfig'] = {'signOutEndDate': '2026-10-15 12:15:00'}
-    progress = boya_progress({}, [course], now=NOW)
-    assert progress['pending'] == 1
-    assert progress['failed'] == 0
-    progress = boya_progress({}, [course], now=datetime.fromisoformat('2026-10-15T12:16:00+08:00'))
-    assert progress['failed'] == 1
-    assert progress['totalCount'] == -1
+def test_all_four_official_targets_required_and_extra_cannot_offset_other_categories():
+    result = boya_progress(official_statistics(art=8, labor=0))
+    assert result['metCategories'] == 3
+    assert not result['met']
+    assert boya_progress(official_statistics(labor=2))['met']
 
 
-def test_boya_stale_cache_or_unknown_records_do_not_create_false_penalties():
-    course = enrollment(1, signed_out=False)
-    progress = boya_progress({}, [course], now=NOW, observed_at=datetime.fromisoformat('2026-10-14T15:00:00+08:00'))
-    assert progress['failed'] == 0
-    assert progress['unknown'] == 1
-    course['signInfo'] = 'invalid json'
-    progress = boya_progress({}, [course], now=NOW)
-    assert progress['failed'] == 0
-    assert progress['unknown'] == 1
-    assert not progress['met']
+@pytest.mark.parametrize('value', [None, '', 'bad', True, 1.5, {}, [], -1])
+def test_invalid_official_category_counts_are_unknown_not_local_fallback(value):
+    stats = official_statistics()
+    stats['statistical']['60|博雅课程']['55|德育']['completeAssessmentCount'] = value
+    result = boya_progress(stats, [enrollment(1), enrollment(2)], now=NOW)
+    assert not category(result, '德育')['known']
+    assert not category(result, '德育')['met']
+    assert category(result, '德育')['remaining'] is None
+    assert result['unknown'] == 1
 
 
-def test_boya_course_pass_cannot_replace_missing_signout_under_user_rules():
+@pytest.mark.parametrize('selected', [None, [], [enrollment(1)]])
+def test_missing_official_statistics_never_become_zero_or_local_progress(selected):
+    result = boya_progress({}, selected, now=NOW)
+    assert result['totalCount'] is None
+    assert result['metCategories'] == 0
+    assert result['unknown'] == 4
+
+
+def test_zero_and_string_counts_are_valid_official_data():
+    stats = official_statistics(moral=0, art=0, labor=0, health=0, valid='0')
+    stats['statistical']['60|博雅课程']['55|德育']['completeAssessmentCount'] = '0'
+    result = boya_progress(stats)
+    assert result['totalCount'] == 0
+    assert result['unknown'] == 0
+    assert category(result, '德育')['remaining'] == 2
+
+
+@pytest.mark.parametrize('value', [True, 'bad', '', 2.5])
+def test_malformed_official_total_is_not_replaced_by_sum(value):
+    assert boya_progress(official_statistics(valid=value))['totalCount'] is None
+
+
+def test_school_pass_is_independent_of_signout_and_cannot_invent_attendance():
     course = enrollment(1, signed_out=False)
     course.update({'pass': 1, 'checkin': 1})
-    progress = boya_progress({}, [course], now=NOW)
-    assert progress['completed'] == 0
-    assert progress['failed'] == 1
-    assert progress['totalCount'] == -1
+    result = course_view(course, now=NOW)
+    assert result['settlement'] == {'state': 'completed', 'label': '考核通过'}
+    assert result['signOut']['state'] == 'missing'
+    course['pass'] = 0
+    assert course_view(course, now=NOW)['settlement']['state'] == 'failed'
+    del course['pass']
+    assert course_view(course, now=NOW)['settlement']['state'] == 'unknown'
+    course['courseEndDate'] = '2026-10-16 16:00:00'
+    assert course_view(course, now=NOW)['settlement']['state'] == 'pending'
 
 
-def test_boya_empty_cache_and_missing_cache_are_distinct():
-    assert boya_progress({}, None, now=NOW)['totalCount'] is None
-    assert boya_progress({}, [], now=NOW)['totalCount'] == 0
+def test_statistical_assessment_survives_chosen_course_without_pass_and_is_deduped():
+    course = enrollment(1, signed_out=False)
+    course['pass'] = 1
+    stats = official_statistics()
+    stats['statistical']['60|博雅课程']['55|德育']['courseUserList'] = [course]
+    result = boya_progress(stats, [enrollment(1, signed_out=False)], now=NOW)
+    assert len(result['courses']) == 1
+    assert result['courses'][0]['settlement']['state'] == 'completed'
+    assert result['courses'][0]['signOut']['state'] == 'missing'
+
+
+def test_course_order_is_newest_first_with_invalid_dates_last():
+    courses = [dict(enrollment(i), courseStartDate=t) for i, t in enumerate([
+        '2026-09-10 10:00:00', None, '2026-10-10 10:00:00'], 1)]
+    assert [r['id'] for r in boya_progress(official_statistics(), courses)['courses']] == [3, 1, 2]
+
+
+def test_other_curriculum_statistics_cannot_override_boya_category():
+    stats = official_statistics()
+    stats['statistical']['99|其他课程'] = {'德育': {'assessmentCount': 1, 'completeAssessmentCount': 0}}
+    result = boya_progress(stats)
+    assert category(result, '德育')['met']
+    assert category(result, '德育')['completed'] == 2
+
+
+def test_missing_school_requirement_blocks_target_without_hardcoded_fallback():
+    stats = official_statistics()
+    del stats['statistical']['60|博雅课程']['55|德育']['assessmentCount']
+    result = boya_progress(stats)
+    assert category(result, '德育')['required'] is None
+    assert not category(result, '德育')['known']
+    assert not category(result, '德育')['met']

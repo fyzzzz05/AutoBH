@@ -70,7 +70,7 @@ def test_installer_cleans_temporary_bundles_and_restores_old_app_on_failure(tmp_
         with pytest.raises(ValueError, match='signature'):
             installer.install(source, target)
         assert (target / 'Contents/MacOS/AutoBH').read_text() == 'old'
-        restore.assert_called_once_with(force=True)
+        restore.assert_called_once_with(executable=target / 'Contents/Resources/engine/autobh-engine', force=True)
     else:
         installer.install(source, target)
         assert (target / 'Contents/MacOS/AutoBH').read_text() == 'new'
@@ -88,3 +88,14 @@ def test_installer_refuses_to_replace_running_gui(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match='先退出'):
         installer.install(source, target)
     prepare.assert_not_called()
+
+
+def test_local_install_handoff_runs_outgoing_engine_for_correct_version(monkeypatch):
+    run = Mock()
+    monkeypatch.setattr(installer.subprocess, 'run', run)
+    executable = Path('/Applications/AutoBH.app/Contents/Resources/engine/autobh-engine')
+    installer.prepare(executable=executable)
+    run.assert_called_once_with([str(executable), '--update-workers', 'prepare'], check=True)
+    run.reset_mock()
+    installer.restore_pending(executable=executable, force=True)
+    run.assert_called_once_with([str(executable), '--update-workers', 'rollback'], check=True)

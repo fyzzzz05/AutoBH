@@ -74,11 +74,16 @@ def load_boya_cache():
 
 def demo_boya_progress():
     tomorrow = datetime.now(ZoneInfo("Asia/Shanghai")) + timedelta(days=2)
-    return boya_progress({}, [
+    return boya_progress({"validCount": 4, "statistical": {"60|博雅课程": {
+        "55|德育": {"assessmentCount": 2, "completeAssessmentCount": 2, "failAssessmentCount": 0, "undoneAssessmentCount": 0},
+        "56|美育": {"assessmentCount": 1, "completeAssessmentCount": 1, "failAssessmentCount": 0, "undoneAssessmentCount": 0},
+        "57|劳动教育": {"assessmentCount": 2, "completeAssessmentCount": 1, "failAssessmentCount": 1, "undoneAssessmentCount": 0},
+        "58|安全健康": {"assessmentCount": 1, "completeAssessmentCount": 1, "failAssessmentCount": 0, "undoneAssessmentCount": 1},
+    }}}, [
         {"id": 4, "courseName": "校园安全与健康讲座（示例）", "courseStartDate": tomorrow.isoformat(), "courseEndDate": (tomorrow + timedelta(hours=2)).isoformat(), "courseCancelEndDate": (tomorrow - timedelta(hours=1)).isoformat(), "coursePosition": "沙河", "kindName": "安全健康", "signInfo": None},
-        {"id": 1, "courseName": "北航科协大讲堂2026年第六期：仿生水空跨介质机器人关键技术", "courseStartDate": "2026-09-23 14:30:00", "courseEndDate": "2026-09-23 15:50:00", "coursePosition": "新主楼会议中心第二报告厅", "kindName": "德育", "signInfo": {"signIn": {"inSignArea": True}}},
-        {"id": 2, "courseName": "北航红船星河宣讲团·周末理论课堂——“循迹溯源悟思想，守正创新谱新篇”宣讲（沙河校区）", "courseStartDate": "2026-09-19 15:00:00", "courseEndDate": "2026-09-19 16:00:00", "coursePosition": "沙河J3-310", "kindName": "德育", "signInfo": None},
-        {"id": 3, "courseName": "音乐鉴赏", "courseStartDate": "2026-09-18 14:00:00", "courseEndDate": "2026-09-18 16:00:00", "coursePosition": "学院路", "kindName": "美育", "signInfo": {"signIn": {"inSignArea": True}, "signOut": {"inSignArea": True}}},
+        {"id": 1, "courseName": "北航科协大讲堂2026年第六期：仿生水空跨介质机器人关键技术", "courseStartDate": "2026-09-23 14:30:00", "courseEndDate": "2026-09-23 15:50:00", "coursePosition": "新主楼会议中心第二报告厅", "kindName": "德育", "pass": 1, "signInfo": {"signIn": {"inSignArea": True}}},
+        {"id": 2, "courseName": "北航红船星河宣讲团·周末理论课堂——“循迹溯源悟思想，守正创新谱新篇”宣讲（沙河校区）", "courseStartDate": "2026-09-19 15:00:00", "courseEndDate": "2026-09-19 16:00:00", "coursePosition": "沙河J3-310", "kindName": "德育", "pass": 1, "signInfo": None},
+        {"id": 3, "courseName": "音乐鉴赏", "courseStartDate": "2026-09-18 14:00:00", "courseEndDate": "2026-09-18 16:00:00", "coursePosition": "学院路", "kindName": "美育", "pass": 1, "signInfo": {"signIn": {"inSignArea": True}, "signOut": {"inSignArea": True}}},
     ])
 
 
@@ -526,8 +531,13 @@ class Application:
         counts['excludedCount'] = len(exclusions(backends.boya_store()).get(username, {}))
         summary = progress_text("boya", counts)
         lines = [summary]
-        lines.extend(f"{row['name']}：有效 {row['net']} / {row['required']} 次（完成 {row['completed']}，扣次 {row['failed']}，还需 {row['remaining']}）" for row in counts["categories"])
-        lines.append("签到、签退都成功计 +1；课程及签退窗口结束后未完成计 −1，按类别分别扣减。")
+        for row in counts["categories"]:
+            if row["known"]:
+                state = "已达标" if row["met"] else f"还需 {row['remaining']} 次"
+                lines.append(f"{row['name']}：考核通过 {row['completed']} / {row['required']}（{state}）")
+            else:
+                lines.append(f"{row['name']}：等待官方统计")
+        lines.append("以学校统计接口为准；签到、签退记录独立展示，不用于推算考核结果。")
         lines.append("已选课程" if counts["courses"] else "暂无已选课程缓存，后台定期刷新后更新。")
         for course in counts["courses"]:
             lines.append(f"{course['name']}\n{course['start'] or '时间待更新'}　{course['location']}\n{course['signIn']['label']} · {course['signOut']['label']} · {course['settlement']['label']}")
