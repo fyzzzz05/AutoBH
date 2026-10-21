@@ -6,10 +6,29 @@ function AttendanceBadge({ record }) {
   return <span className={`boya-attendance ${record.state}`}><Icon size={15} aria-hidden="true" />{record.label}</span>;
 }
 
-export function BoyaProgress({ detail, onWithdraw, busy }) {
+export function BoyaProgress({ detail, onWithdraw, onCustomize, busy }) {
   const [confirmId, setConfirmId] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState('categories');
+  const [target, setTarget] = useState('6');
+  const stop = detail.stopCondition;
+  function openCustomization() {
+    setMode(stop?.mode === 'total' ? 'total' : 'categories');
+    setTarget(String(stop?.target ?? 6));
+    setEditing(true);
+  }
   return <div className="boya-progress">
-    <div className="boya-summary"><strong>{detail.met ? '博雅要求已达标' : detail.summary}</strong><p>分类考核通过数、考核指标与净有效次数均以学校统计为准。</p></div>
+    <div className="boya-summary"><div className="boya-summary-heading"><strong>{detail.summary}</strong>{onCustomize && <button className="button secondary small" disabled={busy} aria-expanded={editing} aria-controls="boya-personalization" onClick={openCustomization}>个人定制</button>}</div><p>{stop?.label ?? '默认 · 各类达到学校考核指标'}</p></div>
+    {editing && <form id="boya-personalization" className="boya-personalization" aria-label="个人定制" onSubmit={async (event) => {
+      event.preventDefault();
+      if (await onCustomize(mode === 'total' ? { mode, target: Number(target) } : { mode })) setEditing(false);
+    }}>
+      <h3>个人定制</h3>
+      <div className="boya-personalization-fields"><label>停止条件<select value={mode} disabled={busy} onChange={(event) => setMode(event.target.value)}><option value="categories">默认：各类达到学校指标</option><option value="total">净有效次数达到指定次数</option></select></label>
+        {mode === 'total' && <label>净有效次数目标<input type="number" min="1" max="10000" step="1" required value={target} disabled={busy} onChange={(event) => setTarget(event.target.value)} /></label>}</div>
+      <p className="form-hint">{mode === 'total' ? '仅按官方净有效次数停选；某类已达标仍可选，直到总目标达标。' : '每类达到官方指标后停止选该类，全部达标后停止新选课。'}仅对当前同学生效，已选课程继续签到、签退。</p>
+      <div className="dialog-actions"><button type="button" className="button secondary small" disabled={busy} onClick={() => setEditing(false)}>取消</button><button className="button primary small" disabled={busy}>{busy ? '保存中…' : mode === 'categories' ? '恢复默认' : '保存设置'}</button></div>
+    </form>}
     <div className="boya-targets" aria-label="博雅分类完成要求">{detail.categories?.map((row) => <div key={row.name} className={`boya-target ${row.met ? 'met' : ''}`}>
       <div className="boya-target-heading"><strong>{row.name}</strong><span>{!row.known ? '等待官方统计' : row.met ? '已达标' : `还需 ${row.remaining} 次`}</span></div>
       <div className="boya-target-count"><strong>{row.completed ?? '—'}</strong><span> / {row.required ?? '—'}</span></div>

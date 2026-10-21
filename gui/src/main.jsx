@@ -6,6 +6,7 @@ import "./styles.css";
 import "./dashboard.css";
 import "./appearance.css";
 import "./sunshine-layout.css";
+import "./boya-personalization.css";
 
 installInputModality();
 

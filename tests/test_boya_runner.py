@@ -128,3 +128,74 @@ def test_each_category_stops_at_school_requirement_instead_of_hardcoded_goal(run
     assert '已达标' in runner.selection_block_reason('done', 99)
     assert not runner._select_for_user(UserRecord('done'), 99).ok
     runner._with_reauth.assert_not_called()
+
+
+def test_personal_total_replaces_category_stop_without_affecting_other_user(runner):
+    from autobh.boya_policy import save_policy
+    cache_candidate(runner)
+    save_official(runner, 'done', passed=1)
+    save_official(runner, 'needed', passed=1)
+    save_policy(runner.store, 'done', {'mode': 'total', 'target': 6})
+    assert runner.selection_block_reason('done', 99) is None
+    assert '已达标' in runner.selection_block_reason('needed', 99)
+    assert runner._select_for_user(UserRecord('done'), 99).ok
+
+
+def test_personal_total_uses_official_net_including_deductions_and_rechecks_changes(runner):
+    from autobh.boya_policy import save_policy
+    cache_candidate(runner)
+    save_policy(runner.store, 'done', {'mode': 'total', 'target': 6})
+    save_official(runner, 'done', passed=6, failed=1)
+    assert runner.selection_block_reason('done', 99) is None
+    save_official(runner, 'done', passed=6)
+    assert '个人目标已达标' in runner.selection_block_reason('done', 99)
+    assert not runner._select_for_user(UserRecord('done'), 99).ok
+    runner._with_reauth.assert_not_called()
+    save_official(runner, 'done', passed=0, failed=2)
+    assert runner.selection_block_reason('done', 99) is None
+
+
+def test_restore_default_reinstates_official_category_guard(runner):
+    from autobh.boya_policy import save_policy
+    cache_candidate(runner)
+    save_official(runner, 'done', passed=1)
+    save_policy(runner.store, 'done', {'mode': 'total', 'target': 6})
+    assert runner.selection_block_reason('done', 99) is None
+    save_policy(runner.store, 'done', {'mode': 'categories'})
+    assert '安全健康已达标' in runner.selection_block_reason('done', 99)
+
+
+def test_total_mode_blocks_unknown_totals_refresh_failures_and_manual_exclusions(runner):
+    from autobh.boya_policy import save_policy
+    from autobh.boya_operations import mark_refresh_error
+    from autobh.storage import atomic_json
+    cache_candidate(runner)
+    save_policy(runner.store, 'done', {'mode': 'total', 'target': 6})
+    runner.cache.save_statistics('done', {})
+    assert '待核实' in runner.selection_block_reason('done', 99)
+    save_official(runner, 'done', passed=1)
+    mark_refresh_error(runner.store, 'done')
+    assert '刷新失败' in runner.selection_block_reason('done', 99)
+    atomic_json(runner.store.path('run/autobh/exclusions.json'), {'done': {'99': {}}})
+    assert '禁止自动选回' in runner.selection_block_reason('done', 99)
+
+
+def test_existing_attendance_continues_after_personal_total_is_met(runner):
+    from autobh.boya_policy import save_policy
+    save_policy(runner.store, 'done', {'mode': 'total', 'target': 1})
+    save_official(runner, 'done', passed=1)
+    runner.cache.save_selected('done', [completed(10)])
+    runner._sign_for_user = Mock(side_effect=lambda username, course, action: ActionResult(username, action, course.id, True, 'signed'))
+    results = runner.execute_decisions([AutomationDecision('sign', 10, 'done'), AutomationDecision('signout', 10, 'done')])
+    assert [row.action for row in results] == ['sign', 'signout']
+
+
+def test_malformed_personal_configuration_blocks_instead_of_using_default(runner):
+    from autobh.boya_policy import path
+    from autobh.storage import atomic_json
+    cache_candidate(runner)
+    save_official(runner, 'done')
+    atomic_json(path(runner.store), {'done': {'mode': 'total', 'target': 0}})
+    assert '配置异常' in runner.selection_block_reason('done', 99)
+    runner._select_for_user(UserRecord('done'), 99)
+    runner._with_reauth.assert_not_called()

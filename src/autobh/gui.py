@@ -136,13 +136,23 @@ class Application:
         self.refresh_errors = {}
         self.sunshine_samples = {}
         self.demo_appearance = "system"
+        self.boya_policies = {}
 
     def appearance(self):
         return self.demo_appearance if self.demo else read_appearance(self.registry.root)
 
     def snapshot(self):
         if self.demo:
-            return copy.deepcopy(self.sample)
+            from .boya_policy import apply_policy, DEFAULT
+            sample = copy.deepcopy(self.sample)
+            for person in sample['people']:
+                binding = person['features'].get('boya')
+                if binding:
+                    if 'counts' not in binding:
+                        binding['counts'] = {key: value for key, value in demo_boya_progress().items() if key != 'courses'}
+                    counts = apply_policy(binding['counts'], self.boya_policies.get(person['username'], DEFAULT))
+                    binding['progress'] = progress_text('boya', counts)
+            return sample
         from .cli import people
         rows = people(self.registry)
         services = {}
@@ -181,6 +191,8 @@ class Application:
                     progress = boya_progress(boya_stats.get(row['username'], {}), boya_selected.get(row['username']), observed_at=personal_observed)
                     progress['updatedAt'] = personal_observed.isoformat() if personal_observed else None
                     progress['refreshError'] = info.get('error')
+                    from .boya_policy import apply_policy, load_policy
+                    apply_policy(progress, load_policy(backends.boya_store(), row['username']))
                 row["features"][feature]["refreshing"] = (feature, row['username']) in self.refreshing
                 row["features"][feature]["progress"] = progress_text(feature, progress)
                 row["features"][feature]["counts"] = {key: value for key, value in progress.items() if key != "courses"}
@@ -257,12 +269,24 @@ class Application:
                     save_appearance(self.registry.root, mode)
             return {"appearance": mode}
 
-        if path in {"/api/refresh", "/api/boya/drop", "/api/ygdk/submit", "/api/ygdk/records", "/api/ygdk/batch"}:
+        if path in {"/api/refresh", "/api/boya/drop", "/api/boya/personalization", "/api/ygdk/submit", "/api/ygdk/records", "/api/ygdk/batch"}:
             username = payload.get("username", "")
             from .cli import validate_username
             if not isinstance(username, str):
                 raise ValueError("学号格式不正确")
             validate_username(username)
+            if path == '/api/boya/personalization':
+                from .boya_policy import save_policy, validate_policy
+                policy = validate_policy(payload)
+                if self.demo:
+                    with self.lock:
+                        if not any(person['username'] == username and 'boya' in person['features'] for person in self.sample['people']):
+                            raise ValueError('请先绑定博雅账号')
+                        self.boya_policies[username] = policy
+                else:
+                    save_policy(backends.boya_store(), username, policy)
+                return {'message': '个人定制已保存' if policy['mode'] == 'total' else '已恢复默认规则',
+                        'detail': self.detail('boya', username)}
             if path == "/api/refresh":
                 return self.refresh_detail(valid_feature(payload), username)
             if path.startswith('/api/ygdk/'):
@@ -408,6 +432,7 @@ class Application:
                                                "group": payload.get("group", ""), "features": {}})
         elif path == "/api/people/remove":
             self.sample["people"] = [row for row in self.sample["people"] if row["username"] != username]
+            self.boya_policies.pop(username, None)
         elif path in {"/api/feature", "/api/account"}:
             if not person:
                 raise ValueError("未找到人员")
@@ -437,6 +462,8 @@ class Application:
             summary = person["features"].get(feature, {}).get("progress", "暂无次数缓存")
             if feature == "boya":
                 counts = demo_boya_progress()
+                from .boya_policy import apply_policy, DEFAULT
+                apply_policy(counts, self.boya_policies.get(username, DEFAULT))
                 if username in self.demo_courses:
                     counts['courses'] = self.demo_courses[username]
                     if not any(course['id'] == 4 for course in counts['courses']):
@@ -529,8 +556,10 @@ class Application:
         counts['updatedAt'] = observed_at.isoformat() if observed_at else None
         counts['refreshError'] = observation_info.get('error')
         counts['excludedCount'] = len(exclusions(backends.boya_store()).get(username, {}))
+        from .boya_policy import apply_policy, load_policy
+        apply_policy(counts, load_policy(backends.boya_store(), username))
         summary = progress_text("boya", counts)
-        lines = [summary]
+        lines = [summary, counts['stopCondition']['label']]
         for row in counts["categories"]:
             if row["known"]:
                 state = "已达标" if row["met"] else f"还需 {row['remaining']} 次"

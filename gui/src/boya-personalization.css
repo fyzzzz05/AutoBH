@@ -1,0 +1,12 @@
+.boya-summary-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.boya-summary-heading .button { flex:none; }
+.boya-personalization { margin:16px 0; padding:18px; border:1px solid var(--border-strong); border-radius:10px; background:var(--surface); }
+.boya-personalization h3 { margin:0 0 16px; font-size:16px; }
+.boya-personalization-fields { display:grid; grid-template-columns:2fr 1fr; gap:16px; }
+.boya-personalization-fields label { min-width:0; font-size:14px; color:var(--ink); }
+.boya-personalization .dialog-actions { margin-top:16px; }
+@media(max-width:540px) {
+  .boya-summary-heading { align-items:flex-start; }
+  .boya-personalization { padding:14px; }
+  .boya-personalization-fields { grid-template-columns:minmax(0,1fr); }
+}

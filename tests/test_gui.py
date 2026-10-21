@@ -299,3 +299,51 @@ def test_appearance_api_is_authenticated_validated_and_injected_in_html(gui_serv
     assert json.loads(request('/api/appearance', headers=headers)[1])['appearance'] == 'dark'
     assert 'data-appearance="dark"' in request('/')[1]
     assert request('/api/appearance', {'appearance': 'auto'}, headers)[0] == 400
+
+
+def test_personal_boya_policy_api_persists_without_school_requests_or_switch_changes(gui_server):
+    from autoboya.models import UserRecord
+    from autoboya.cache import CourseCache
+    from autobh.boya_policy import load_policy
+    request, headers, _ = gui_server
+    store = backends.boya_store()
+    store.init()
+    store.upsert_user(UserRecord('1', enabled=False))
+    store.upsert_user(UserRecord('2'))
+    CourseCache(store).save_statistics('1', {'validCount': 4})
+    status, body = request('/api/boya/personalization', {'username': '1', 'mode': 'total', 'target': 6}, headers)
+    assert status == 200
+    detail = json.loads(body)['detail']
+    assert detail['summary'] == '净有效 4 / 6 次 · 还需 2 次'
+    assert load_policy(store, '1') == {'mode': 'total', 'target': 6}
+    assert load_policy(store, '2') == {'mode': 'categories'}
+    assert not store.get_user('1').enabled
+    state = json.loads(request('/api/state', headers=headers)[1])
+    person = next(row for row in state['people'] if row['username'] == '1')
+    assert person['features']['boya']['counts']['stopCondition']['target'] == 6
+    assert request('/api/boya/personalization', {'username': '1', 'mode': 'categories'}, headers)[0] == 200
+    assert load_policy(store, '1') == {'mode': 'categories'}
+    assert request('/api/boya/personalization', {'username': '1', 'mode': 'total', 'target': True}, headers)[0] == 400
+    assert request('/api/boya/personalization', {'username': '3', 'mode': 'total', 'target': 6}, headers)[0] == 400
+    assert request('/api/boya/personalization', {'username': '1', 'mode': 'total', 'target': 6})[0] == 403
+
+
+def test_demo_personalization_is_in_memory_and_isolated_between_people(tmp_path):
+    app = Application(tmp_path, demo=True)
+    app.mutate('/api/boya/personalization', {'username': '23370002', 'mode': 'total', 'target': 8})
+    assert app.detail('boya', '23370002')['stopCondition']['target'] == 8
+    assert app.detail('boya', '23370004')['stopCondition']['mode'] == 'categories'
+    assert app.snapshot()['people'][1]['features']['boya']['counts']['stopCondition']['target'] == 8
+    app.mutate('/api/boya/personalization', {'username': '23370002', 'mode': 'categories'})
+    assert app.detail('boya', '23370002')['stopCondition']['mode'] == 'categories'
+    assert not backends.native_home('boya').exists()
+
+
+def test_new_demo_boya_binding_can_be_customized_and_deleted(tmp_path):
+    app = Application(tmp_path, demo=True)
+    app.mutate('/api/account', {'username': '23370001', 'feature': 'boya'})
+    app.mutate('/api/boya/personalization', {'username': '23370001', 'mode': 'total', 'target': 6})
+    counts = app.snapshot()['people'][0]['features']['boya']['counts']
+    assert counts['stopCondition']['target'] == 6
+    app.mutate('/api/people/remove', {'username': '23370001'})
+    assert '23370001' not in app.boya_policies

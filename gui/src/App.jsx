@@ -204,6 +204,18 @@ export function App() {
     } catch (failure) { if (failure.name !== 'AbortError') setError(failure.message); return false; }
     finally { setBusy(''); }
   }
+  async function customizeBoya(payload) {
+    const target = modal;
+    setBusy('boya-personalization'); setError('');
+    detailAbort.current?.abort();
+    const abort = new AbortController(); detailAbort.current = abort;
+    try {
+      const result = await api('/api/boya/personalization', { username: target.username, ...payload }, abort.signal);
+      setDetail(result.detail); setToast(result.message); await refresh();
+      return true;
+    } catch (failure) { if (failure.name !== 'AbortError') setError(failure.message); return false; }
+    finally { setBusy(''); }
+  }
   async function sunshineAction(path, payload) {
     setBusy('sunshine'); setError('');
     const target = modal;
@@ -275,7 +287,7 @@ export function App() {
       {modal.type === 'logs' && <div className="log-tabs">{features.map((feature) => <button key={feature.id} className={logFeature === feature.id ? 'active' : ''} onClick={() => loadLogs(feature.id)}>{feature.title}</button>)}</div>}
       {modal.type === 'detail' && modal.feature !== 'td' && <div className="detail-toolbar"><span>数据更新：{formatTime(detail?.updatedAt)}</span><button className="button secondary small" disabled={!!busy} onClick={refreshDetail}>{busy === 'refresh' ? '刷新中…' : '刷新数据'}</button></div>}
       {error && <p className="form-error" role="alert">{error}</p>}
-      {detail ? modal.type === 'detail' && modal.feature === 'class' ? <WeekTimetable detail={detail} /> : modal.type === 'detail' && modal.feature === 'td' ? <TDProgress detail={detail} onRefresh={refreshDetail} busy={!!busy} syncError={tdSyncError} /> : modal.type === 'detail' && modal.feature === 'ygdk' ? <SunshineProgress detail={detail} busy={!!busy} onReconnect={refreshDetail} onRebind={() => openModal({ type: 'bind', feature: features.find((feature) => feature.id === 'ygdk'), person: state.people.find((person) => person.username === modal.username) })} onPage={(page) => sunshineAction('/api/ygdk/records', { page })} onSubmit={(payload) => sunshineAction(payload.records ? '/api/ygdk/batch' : '/api/ygdk/submit', payload)} /> : modal.type === 'detail' && modal.feature === 'boya' && detail.courses ? <BoyaProgress detail={detail} onWithdraw={withdraw} busy={!!busy} /> : <pre className="records-content">{detail.text}</pre> : <div className="loading-detail"><CircleNotch className="spin" size={22} />{modal.type === 'detail' && modal.title === '本周课表' ? '正在查询课表，请稍候…' : '正在读取…'}</div>}
+      {detail ? modal.type === 'detail' && modal.feature === 'class' ? <WeekTimetable detail={detail} /> : modal.type === 'detail' && modal.feature === 'td' ? <TDProgress detail={detail} onRefresh={refreshDetail} busy={!!busy} syncError={tdSyncError} /> : modal.type === 'detail' && modal.feature === 'ygdk' ? <SunshineProgress detail={detail} busy={!!busy} onReconnect={refreshDetail} onRebind={() => openModal({ type: 'bind', feature: features.find((feature) => feature.id === 'ygdk'), person: state.people.find((person) => person.username === modal.username) })} onPage={(page) => sunshineAction('/api/ygdk/records', { page })} onSubmit={(payload) => sunshineAction(payload.records ? '/api/ygdk/batch' : '/api/ygdk/submit', payload)} /> : modal.type === 'detail' && modal.feature === 'boya' && detail.courses ? <BoyaProgress detail={detail} onWithdraw={withdraw} onCustomize={customizeBoya} busy={!!busy} /> : <pre className="records-content">{detail.text}</pre> : <div className="loading-detail"><CircleNotch className="spin" size={22} />{modal.type === 'detail' && modal.title === '本周课表' ? '正在查询课表，请稍候…' : '正在读取…'}</div>}
     </Dialog>}
   </div>;
 }

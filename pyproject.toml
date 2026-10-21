@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AutoBH"
-version = "0.1.10"
+version = "0.1.11"
 description = "北航上课、TD、博雅、阳光工具的统一 CLI 与 GUI 管理入口"
 readme = "README.md"
 requires-python = ">=3.11"

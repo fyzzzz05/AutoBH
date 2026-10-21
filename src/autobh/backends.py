@@ -150,7 +150,16 @@ def remove_account(feature: str, username: str) -> bool:
     if feature == "class":
         return class_manager().delete_user(username)
     if feature == "boya":
-        return boya_store().remove_user(username)
+        from .boya_operations import operation_lock
+        from .boya_policy import path as policy_path
+        from .storage import atomic_json, read_json
+        store = boya_store()
+        with operation_lock(store):
+            policies = read_json(policy_path(store), {})
+            if username in policies:
+                del policies[username]
+                atomic_json(policy_path(store), policies)
+            return store.remove_user(username)
     removed = td_store().delete_user(username)
     switches = td_switches()
     if username in switches:

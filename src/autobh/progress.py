@@ -104,6 +104,12 @@ def progress_text(feature: str, progress: dict) -> str:
     if feature == "boya":
         if total is None:
             return "暂无官方统计缓存"
+        stop = progress.get("stopCondition", {})
+        if stop.get("mode") == "invalid":
+            return f"净有效 {total} 次 · 个人定制配置异常"
+        if stop.get("mode") == "total":
+            state = "个人目标已达标" if stop["met"] else f"还需 {stop['remaining']} 次"
+            return f"净有效 {total} / {stop['target']} 次 · {state}"
         text = f"净有效 {total} 次 · 已达标 {progress['metCategories']} / 4 类"
         if progress["unknown"]:
             text += f" · {progress['unknown']} 类待同步"
